@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=none, touch-action=none">
+    <title>트렌드 캐치: 비즈니스 마인드셋</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0a0e17;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+        }
+        #gameContainer {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            max-width: 450px;
+            max-height: 850px;
+            background: #111625;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0,0,0,0.6);
+            display: flex;
+            flex-direction: column;
+        }
+        /* 상단 대시보드 */
+        .header {
+            padding: 20px;
+            background: #171d2f;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #1f273e;
+            z-index: 10;
+        }
+        .score-area {
+            display: flex;
+            flex-direction: column;
+        }
+        .label {
+            font-size: 0.75rem;
+            color: #7889a4;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 2px;
+        }
+        .value {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #00ffcc;
+            font-family: monospace;
+        }
+        /* 체력바 (KPI) */
+        .kpi-area {
+            width: 120px;
+        }
+        .kpi-bar-container {
+            width: 100%;
+            height: 12px;
+            background: #252f48;
+            border-radius: 6px;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+        .kpi-bar {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #ff007f, #ff5500);
+            transition: width 0.1s ease;
+        }
+
+        /* 메인 게임 무대 */
+        .stage {
+            flex: 1;
+            position: relative;
+            background: radial-gradient(circle at center, #161d31 0%, #0a0e17 100%);
+            overflow: hidden;
+        }
+        
+        /* 피크 시즌 (피버 모드) 이펙트 레이어 */
+        .fever-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at center, rgba(255, 0, 127, 0.15) 0%, transparent 70%);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 1;
+            transition: opacity 0.3s;
+        }
+        .fever-overlay.active {
+            animation: pulse 0.5s infinite alternate;
+            opacity: 1;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.3; }
+            100% { opacity: 0.7; }
+        }
+
+        /* 콤보 및 알림 텍스트 */
+        .combo-text {
+            position: absolute;
+            top: 30px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 2rem;
+            font-weight: 900;
+            color: #ffeb3b;
+            text-shadow: 0 0 10px rgba(255,235,59,0.5);
+            transform: scale(0);
+            transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+            z-index: 5;
+        }
+        .combo-text.active { transform: scale(1); }
+
+        .fever-notice {
+            position: absolute;
+            top: 45%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            background: linear-gradient(45deg, #ff007f, #ffaa00);
+            padding: 10px 25px;
+            border-radius: 30px;
+            font-weight: 900;
+            font-size: 1.5rem;
+            color: #fff;
+            box-shadow: 0 0 20px rgba(255,0,127,0.6);
+            white-space: nowrap;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+            z-index: 6;
+        }
+        .fever-notice.active { transform: translate(-50%, -50%) scale(1); }
+
+        /* 흘러가는 키워드 버블 */
+        .keyword-bubble {
+            position: absolute;
+            padding: 12px 20px;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 0.95rem;
+            white-space: nowrap;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            transform: translate3d(0, 0, 0);
+            will-change: transform;
+            border: 2px solid transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        /* 키워드 종류별 스타일 (디테일) */
+        .bubble-trend {
+            background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+            color: #000;
+            box-shadow: 0 0 15px rgba(0, 242, 254, 0.4);
+        }
+        .bubble-fail {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: #95a5a6;
+            border-color: #7f8c8d;
+        }
+
+        /* 탭 피드백 이펙트 */
+        .tap-effect {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.4);
+            transform: scale(0);
+            pointer-events: none;
+            z-index: 4;
+        }
+        .tap-effect.animate {
+            animation: ripple 0.4s ease-out;
+        }
+        @keyframes ripple {
+            0% { transform: scale(0); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+
+        /* 시스템 스크린 (시작, 종료) */
+        .screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 14, 23, 0.96);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 30px;
+            text-align: center;
+            z-index: 100;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        .screen.active { opacity: 1; visibility: visible; }
+        
+        h1 { font-size: 2.2rem; margin-bottom: 10px; font-weight: 900; background: linear-gradient(45deg, #00f2fe, #ff007f); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .sub-title { font-size: 1rem; color: #7889a4; margin-bottom: 30px; font-weight: 500; }
+        .guide-box {
+            background: #171d2f;
+            padding: 20px;
+            border-radius: 15px;
+            width: 100%;
+            margin-bottom: 35px;
+            text-align: left;
+            border: 1px solid #252f48;
+        }
+        .guide-item { display: flex; align-items: center; margin-bottom: 12px; font-size: 0.9rem; color: #b2c0d6; }
+        .guide-item:last-child { margin-bottom: 0; }
+        .badge { padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; margin-right: 12px; flex-shrink: 0; text-align: center; width: 75px;}
+        
+        .btn {
+            padding: 16px 45px;
+            font-size: 1.15rem;
+            font-weight: bold;
+            color: #0a0e17;
+            background: linear-gradient(45deg, #00f2fe, #4facfe);
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 5px 20px rgba(0,242,254,0.4);
+            transition: transform 0.1s;
+        }
+        .btn:active { transform: scale(0.95); }
+        
+        #endScreen h1 { background: linear-gradient(45deg, #ffeb3b, #ff007f); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .result-score { font-size: 2.5rem; font-weight: 900; color: #fff; margin: 15px 0; font-family: monospace; }
+        .result-comment { color: #b2c0d6; font-size: 1rem; line-height: 1.6; margin-bottom: 30px; padding: 0 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="gameContainer">
+        <!-- 상단 계기판 -->
+        <div class="header">
+            <div class="score-area">
+                <span class="label">Market Share</span>
+                <span class="value" id="scoreDisplay">0%</span>
+            </div>
+            <div class="kpi-area">
+                <div class="label" style="text-align: right;">Brand KPI</div>
+                <div class="kpi-bar-container">
+                    <div class="kpi-bar" id="kpiBar"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 게임 스테이지 -->
+        <div class="stage" id="stage">
+            <div class="fever-overlay" id="feverOverlay"></div>
+            <div class="combo-text" id="comboDisplay">5 COMBO</div>
+            <div class="fever-notice" id="feverNotice">🔥 PEAK SEASON (매출 폭발) 🔥</div>
+            <div class="tap-effect" id="tapEffect"></div>
+        </div>
+
+        <!-- 시작 화면 -->
+        <div class="screen active" id="startScreen">
+            <h1>TREND CATCH</h1>
+            <div class="sub-title">트렌드 캐치: 비즈니스 마인드셋</div>
+            <div class="guide-box">
+                <div class="guide-item">
+                    <span class="badge bubble-trend" style="color:#000">터치(TAP)</span>
+                    <span><b>트렌드 키워드:</b> 점수 상승 & KPI 획득</span>
+                </div>
+                <div class="guide-item">
+                    <span class="badge bubble-fail" style="color:#fff; background:#34495e;">무시(PASS)</span>
+                    <span><b>철 지난 유행어/루머:</b> 터치 시 KPI 감소</span>
+                </div>
+                <div class="guide-item">
+                    <span class="badge" style="background:#ff9800; color:#fff;">콤보 보너스</span>
+                    <span>연속 성공 시 키워드가 폭발하는 <b>피크 시즌</b> 진입!</span>
+                </div>
+            </div>
+            <button class="btn" id="startBtn">프로젝트 착수</button>
+        </div>
+
+        <!-- 종료 화면 -->
+        <div class="screen" id="endScreen">
+            <h1>캠페인 마감</h1>
+            <div class="sub-title">당신의 최종 시장 점유율은?</div>
+            <div class="result-score" id="finalScore">0%</div>
+            <div class="result-comment" id="finalComment">결과 분석 중...</div>
+            <button class="btn" id="restartBtn" style="background: linear-gradient(45deg, #ffeb3b, #ff9800); box-shadow: 0 5px 20px rgba(255,152,0,0.4);">다음 분기 도전</button>
+        </div>
+    </div>
+
+    <script>
+        const stage = document.getElementById('stage');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const kpiBar = document.getElementById('kpiBar');
+        const comboDisplay = document.getElementById('comboDisplay');
+        const feverOverlay = document.getElementById('feverOverlay');
+        const feverNotice = document.getElementById('feverNotice');
+        const tapEffect = document.getElementById('tapEffect');
+        
+        const startScreen = document.getElementById('startScreen');
+        const endScreen = document.getElementById('endScreen');
+        const startBtn = document.getElementById('startBtn');
+        const restartBtn = document.getElementById('restartBtn');
+        const finalScore = document.getElementById('finalScore');
+        const finalComment = document.getElementById('finalComment');
+
+        // 게임 상태 시스템
+        let gameState = 'START';
+        let score = 0;
+        let kpi = 100;
+        let combo = 0;
+        let isFever = false;
+        let feverTimer = 0;
+        let bubbles = [];
+        
+        let spawnInterval = 45; // 루프 주기 기반 스폰 속도
+        let spawnTimer = 0;
+        let baseSpeed = 2;
+
+        // 실제 기획/마케팅 현업 트렌드 & 오답 데이터셋 (디테일 요소)
+        const trendKeywords = [
+            "AI 융합", "생성형 AI", "빅데이터 시각화", "숏폼 커머스", "하이퍼 로컬", 
+            "디지털 트랜스포메이션", "ESG 경영", "시속가능성", "갓생 루틴", "개인화 큐레이션",
+            "팝업 스토어", "친환경 패키징", "커뮤니티 빌딩", "디토 소비", "시공간 인지"
+        ];
+
+        const failKeywords = [
+            "웰빙 웰빙", "싸이월드 일촌", "가짜 뉴스", "불법 바이럴", "보여주기식 겉치레",
+            "무지성 카피", "종이 보고서", "라떼는 말이야", "단순 물량 공세", "허위 과대 광고",
+            "주 6일제 부활", "유행 지난 유행어", "조회수 원툴", "불통 협업", "깜깜이 지표"
+        ];
+
+        // 초기화 함수
+        function initGame() {
+            score = 0;
+            kpi = 100;
+            combo = 0;
+            isFever = false;
+            feverTimer = 0;
+            spawnInterval = 45;
+            baseSpeed = window.innerWidth < 380 ? 1.8 : 2.3; // 화면 너비별 속도 최적화
+            
+            // 기존 버블 소멸
+            bubbles.forEach(b => b.el.remove());
+            bubbles = [];
+
+            updateUI();
+        }
+
+        // 키워드 버블 생성 생성자
+        function spawnBubble() {
+            const isTrend = Math.random() > 0.4; // 60% 확률로 정답 버블 등장
+            const text = isTrend 
+                ? trendKeywords[Math.floor(Math.random() * trendKeywords.length)]
+                : failKeywords[Math.floor(Math.random() * failKeywords.length)];
+
+            const el = document.createElement('div');
+            el.className = `keyword-bubble ${isTrend ? 'bubble-trend' : 'bubble-fail'}`;
+            el.innerText = text;
+            
+            // 피크 시즌일 때는 시각적으로 더욱 번쩍이는 연출 추가
+            if (isFever && isTrend) {
+                el.style.boxShadow = "0 0 25px #ff007f";
+                el.style.background = "linear-gradient(135deg, #ff007f 0%, #ffaa00 100%)";
+            }
+
+            stage.appendChild(el);
+
+            // 랜덤 생성 위치 세팅 (화면 안쪽 안전 패딩 확보)
+            const elWidth = el.offsetWidth || 120;
+            const stageWidth = stage.clientWidth;
+            const x = Math.random() * (stageWidth - elWidth - 30) + 15;
+            const y = stage.clientHeight + 20; // 화면 바닥 바로 밑에서 대기
+
+            el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+
+            // 터치/클릭 이벤트 바인딩 (하이브리드 대응)
+            const handleTap = (e) => {
+                e.preventDefault();
+                processHit(bubbleObj);
+                showTapEffect(x + elWidth/2, bubbleObj.currentY);
+            };
+            el.addEventListener('touchstart', handleTap, {passive: false});
+            el.addEventListener('mousedown', handleTap);
+
+            const bubbleObj = {
+                el: el,
+                isTrend: isTrend,
+                x: x,
+                currentY: y,
+                speed: (Math.random() * 0.8 + baseSpeed) * (isFever ? 1.5 : 1) // 피버 타임 시 고속 상승
+            };
+
+            bubbles.push(bubbleObj);
+        }
+
+        // 터치 판정 처리 로직
+        function processHit(bubble) {
+            if (gameState !== 'PLAYING') return;
+
+            // 리스트에서 제거
+            bubbles = bubbles.filter(b => b !== bubble);
+            bubble.el.remove();
+
+            if (bubble.isTrend) {
+                // 트렌드 키워드를 정확히 캐치했을 때
+                combo++;
+                let scoreGain = isFever ? 4 : 2;
+                score += scoreGain;
+                kpi = Math.min(100, kpi + 2); // KPI 소폭 회복
+                
+                showCombo();
+
+                // 10콤보 달성 시 피크 시즌(피버 모드) 돌입
+                if (combo >= 10 && !isFever) {
+                    startFever();
+                }
+            } else {
+                // 철 지난 유행어나 나쁜 루머를 캐치했을 때 (감점 및 리스크 가중)
+                combo = 0;
+                hideCombo();
+                kpi -= 15;
+                if (isFever) stopFever(); // 피버 상태 강제 종료
+            }
+
+            updateUI();
+            checkGameOver();
+        }
+
+        // 터치 물결 효과 연출
+        function showTapEffect(x, y) {
+            tapEffect.style.left = `${x - 30}px`;
+            tapEffect.style.top = `${y - 30}px`;
+            tapEffect.classList.remove('animate');
+            void tapEffect.offsetWidth; // 리플로우 트리거
+            tapEffect.classList.add('animate');
+        }
+
+        // 콤보 팝업 노출
+        function showCombo() {
+            if (combo < 2) return;
+            comboDisplay.innerText = `${combo} COMBO`;
+            comboDisplay.classList.add('active');
+        }
+
+        function hideCombo() {
+            comboDisplay.classList.remove('active');
+        }
+
+        // 피크 시즌(피버 모드) 시스템
+        function startFever() {
+            isFever = true;
+            feverTimer = 300; // 피버 지속 프레임수 (약 5초)
+            feverOverlay.classList.add('active');
+            feverNotice.classList.add('active');
+            spawnInterval = 15; // 스폰 주기 대폭 단축 (폭풍 쏟아짐)
+            
+            setTimeout(() => {
+                feverNotice.classList.remove('active');
+            }, 1200);
+        }
+
+        function stopFever() {
+            isFever = false;
+            feverOverlay.classList.remove('active');
+            feverNotice.classList.remove('active');
+            spawnInterval = 45;
+        }
+
+        // 실시간 UI 드로잉 및 제어 업데이트
+        function updateUI() {
+            scoreDisplay.innerText = `${score}%`;
+            kpiBar.style.width = `${kpi}%`;
+
+            // KPI 수치에 따른 경고 연출
+            if (kpi < 35) {
+                kpiBar.style.background = "#ff0000";
+            } else {
+                kpiBar.style.background = "linear-gradient(90deg, #ff007f, #ff5500)";
+            }
+        }
+
+        // 게임 루프 엔진
+        function update() {
+            if (gameState !== 'PLAYING') return;
+
+            // 1. 버블 스폰 주기 연산
+            spawnTimer++;
+            if (spawnTimer >= spawnInterval) {
+                spawnBubble();
+                spawnTimer = 0;
+            }
+
+            // 2. 피버 타이머 연산
+            if (isFever) {
+                feverTimer--;
+                if (feverTimer <= 0) {
+                    stopFever();
+                }
+            }
+
+            // 3. 버블 위치 이동 및 상단 경계선 이탈 판단
+            for (let i = bubbles.length - 1; i >= 0; i--) {
+                const b = bubbles[i];
+                b.currentY -= b.speed;
+                b.el.style.transform = `translate3d(${b.x}px, ${b.currentY}px, 0)`;
+
+                // 화면 상단 밖으로 사라졌을 때의 판정
+                if (b.currentY < -60) {
+                    b.el.remove();
+                    bubbles.splice(i, 1);
+
+                    // 트렌드 키워드인데 터치 안 하고 놓쳤다면 패널티 (KPI 감소)
+                    if (b.isTrend && !isFever) {
+                        combo = 0;
+                        hideCombo();
+                        kpi -= 8;
+                        updateUI();
+                        checkGameOver();
+                    }
+                }
+            }
+        }
+
+        function checkGameOver() {
+            if (kpi <= 0) {
+                kpi = 0;
+                updateUI();
+                gameState = 'END';
+                triggerEndScreen();
+            }
+        }
+
+        // 결과창 분석 도출 (기획/영업/마케팅 맞춤형 피드백 제공)
+        function triggerEndScreen() {
+            finalScore.innerText = `${score}%`;
+            
+            let comment = "";
+            if (score >= 80) {
+                comment = "🏆 <b>트렌드 마스터 (C-Level 승진 대상자)</b><br>시장을 완전히 선도하는 통찰력을 증명했습니다! 당장 올해 핵심 신사업 전략을 기획해 보세요.";
+            } else if (score >= 40) {
+                comment = "📈 <b>프로 트렌드 세터 (우수 기획자)</b><br>시장 흐름을 정교하게 파악하고 있군요. 소비자의 마음을 움직일 줄 아는 실력파 사원입니다.";
+            } else if (score >= 15) {
+                comment = "🧘 <b>안정지향형 실무자 (평범한 직장인)</b><br>트렌드는 알고 있으나 과감함이 조금 부족합니다. 경쟁사 모니터링 자료와 기사 분석을 조금 더 보충해 보세요.";
+            } else {
+                comment = "🚨 <b>기획 리부트 대상 (시야 확보 필요)</b><br>철 지난 유행어나 악성 루머에 휘말려 리소스를 낭비했습니다. 트렌드 서적 정독이 시급합니다!";
+            }
+
+            finalComment.innerHTML = comment;
+            endScreen.classList.add('active');
+        }
+
+        function loop() {
+            update();
+            requestAnimationFrame(loop);
+        }
+
+        // 화면 전환 버튼 리스너
+        startBtn.addEventListener('click', () => {
+            startScreen.classList.remove('active');
+            gameState = 'PLAYING';
+            initGame();
+        });
+
+        restartBtn.addEventListener('click', () => {
+            endScreen.classList.remove('active');
+            gameState = 'PLAYING';
+            initGame();
+        });
+
+        // 윈도우 포커스 해제 시 안전 장치
+        window.addEventListener('blur', () => {
+            if(isFever) stopFever();
+        });
+
+        // 메인 엔진 구동
+        loop();
+    </script>
+</body>
+</html>
